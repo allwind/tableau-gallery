@@ -41,9 +41,25 @@
   ol { padding-left: 20px; line-height: 1.8; margin: 0; }
   code { background: #eef1f4; padding: 1px 5px; border-radius: 4px; }
   @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  body.locked .wrap { display: none; }
+  #lock { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; }
+  body.locked #lock { display: flex; }
+  .lock-box { background: #fff; border: 1px solid #e3e8ee; border-radius: 12px; padding: 28px; width: 100%; max-width: 360px; }
+  .lock-box h1 { font-size: 20px; margin-bottom: 16px; }
+  .lock-box input { margin-bottom: 12px; }
+  .lock-box button { width: 100%; }
 </style>
 </head>
-<body>
+<body class="locked">
+<div id="lock">
+  <form class="lock-box" id="lockForm">
+    <h1>🔒 管理頁</h1>
+    <label for="pw">請輸入密碼</label>
+    <input type="password" id="pw" autocomplete="current-password" autofocus>
+    <button class="primary" type="submit" id="unlockBtn">進入</button>
+    <div class="msg err" id="lockMsg"></div>
+  </form>
+</div>
 <div class="wrap">
   <h1>管理作品</h1>
   <p class="hint">在這裡新增、修改學生作品，完成後按「下載 data.js」，再把檔案上傳到 GitHub 取代原本的 data.js 即可更新網站。<br>
@@ -98,6 +114,16 @@
   </div>
 
   <div class="panel">
+    <h2>更改管理密碼</h2>
+    <div class="grid">
+      <div><label>新密碼</label><input type="password" id="newPw1" autocomplete="new-password"></div>
+      <div><label>再輸入一次</label><input type="password" id="newPw2" autocomplete="new-password"></div>
+    </div>
+    <div class="actions"><button id="changePwBtn">設定新密碼</button></div>
+    <div class="msg" id="pwMsg"></div>
+  </div>
+
+  <div class="panel">
     <h2>如何更新到網站</h2>
     <ol>
       <li>按上方「下載 data.js」。</li>
@@ -114,10 +140,46 @@
   const original = {
     title: window.SITE_TITLE || "學生 Tableau 作品集",
     subtitle: window.SITE_SUBTITLE || "",
-    students: JSON.parse(JSON.stringify(window.STUDENTS || []))
+    students: JSON.parse(JSON.stringify(window.STUDENTS || [])),
+    adminPassword: window.ADMIN_PASSWORD || null
   };
 
   let state = loadDraft() || JSON.parse(JSON.stringify(original));
+  if (!state.adminPassword) state.adminPassword = original.adminPassword;
+
+  // ---- 密碼鎖 ----
+  const UNLOCK_KEY = "tableauGalleryUnlocked";
+  function hex(buf) { return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join(""); }
+  function unhex(h) { return new Uint8Array(h.match(/../g).map(x => parseInt(x, 16))); }
+  async function pbkdf2(password, saltHex, iterations) {
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: unhex(saltHex), iterations, hash: "SHA-256" }, key, 256);
+    return hex(bits);
+  }
+  function unlock() {
+    document.body.classList.remove("locked");
+    try { sessionStorage.setItem(UNLOCK_KEY, original.adminPassword ? original.adminPassword.hash : "none"); } catch (e) {}
+  }
+  (function initLock() {
+    const cfg = original.adminPassword;   // 永遠以線上 data.js 的密碼為準
+    if (!cfg) { unlock(); return; }
+    try { if (sessionStorage.getItem(UNLOCK_KEY) === cfg.hash) { unlock(); return; } } catch (e) {}
+    if (!window.crypto || !crypto.subtle) {
+      document.getElementById("lockMsg").textContent = "此瀏覽器不支援密碼驗證，請用 https 網址開啟。";
+    }
+    document.getElementById("lockForm").onsubmit = async e => {
+      e.preventDefault();
+      const btn = document.getElementById("unlockBtn");
+      const msg = document.getElementById("lockMsg");
+      btn.disabled = true; btn.textContent = "驗證中…"; msg.textContent = "";
+      try {
+        const h = await pbkdf2(document.getElementById("pw").value, cfg.salt, cfg.iterations);
+        if (h === cfg.hash) unlock();
+        else { msg.textContent = "密碼錯誤"; document.getElementById("pw").select(); }
+      } catch (err) { msg.textContent = "驗證失敗，請用 https 網址開啟。"; }
+      btn.disabled = false; btn.textContent = "進入";
+    };
+  })();
   let editingIndex = -1;
 
   const $ = id => document.getElementById(id);
@@ -246,6 +308,9 @@
 window.SITE_TITLE = ${JSON.stringify(state.title)};
 window.SITE_SUBTITLE = ${JSON.stringify(state.subtitle)};
 
+// 管理頁密碼（只存雜湊值，不是密碼本身；請用管理頁的「更改密碼」功能修改）
+window.ADMIN_PASSWORD = ${JSON.stringify(state.adminPassword)};
+
 window.STUDENTS = ${JSON.stringify(state.students, null, 2)};
 `;
   }
@@ -275,6 +340,20 @@ window.STUDENTS = ${JSON.stringify(state.students, null, 2)};
     }).catch(() => { w.close(); setMsg($("listMsg"), "預覽需在網站上（GitHub Pages）使用；本機開檔請直接看清單中的截圖。", false); });
   };
   function fetchText(u) { return fetch(u, { cache: "no-store" }).then(r => { if (!r.ok) throw 0; return r.text(); }); }
+
+  $("changePwBtn").onclick = async () => {
+    const a = $("newPw1").value, b = $("newPw2").value;
+    if (a.length < 6) return setMsg($("pwMsg"), "密碼至少 6 個字元", false);
+    if (a !== b) return setMsg($("pwMsg"), "兩次輸入的密碼不一致", false);
+    try {
+      const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+      const iterations = 200000;
+      state.adminPassword = { salt, iterations, hash: await pbkdf2(a, salt, iterations) };
+      saveDraft();
+      $("newPw1").value = ""; $("newPw2").value = "";
+      setMsg($("pwMsg"), "新密碼已設定。請下載 data.js 並上傳到 GitHub，上傳後新密碼才會生效（在那之前仍使用舊密碼）。", true);
+    } catch (e) { setMsg($("pwMsg"), "設定失敗，請用 https 網址開啟。", false); }
+  };
 
   $("resetBtn").onclick = () => {
     if (!confirm("確定放棄這個瀏覽器中的所有修改，還原成目前線上 data.js 的內容？")) return;

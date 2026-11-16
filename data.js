@@ -7,6 +7,9 @@
 window.SITE_TITLE = "學生 Tableau 作品集";
 window.SITE_SUBTITLE = "點擊作品即可開啟 Tableau Public 互動頁面";
 
+// 管理頁密碼（只存雜湊值，不是密碼本身；請用管理頁的「更改密碼」功能修改）
+window.ADMIN_PASSWORD = {"salt":"196c0a8745616a97fdcf6661ccaf35d9","iterations":200000,"hash":"8548562fa795d7db81123f86103663a27b9e0a31dc7d388d3596e8c8ffb47bc5"};
+
 window.STUDENTS = [
   {
     "name": "範例學生",

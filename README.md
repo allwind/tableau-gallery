@@ -44,6 +44,14 @@
 
 若某位學生的截圖抓不到，可以在 `image` 欄位填入自訂圖片網址（例如把截圖上傳到 repo 的 `images/` 資料夾，填 `images/wang.png`）。
 
+## 管理頁密碼
+
+`admin.html` 需要輸入密碼才能開啟。密碼只以雜湊值（PBKDF2）存在 `data.js` 的 `ADMIN_PASSWORD`，不會存明碼。
+
+更改密碼：進管理頁 →「更改管理密碼」→ 下載 data.js → 上傳到 GitHub，上傳後新密碼生效。
+
+忘記密碼：在 GitHub 編輯 `data.js`，把 `window.ADMIN_PASSWORD = {...};` 改成 `window.ADMIN_PASSWORD = null;`，管理頁就不需要密碼，進去後再設定新密碼。
+
 ## 注意
 
-`admin.html` 是公開的，但它無法直接修改網站——只有能登入你 GitHub 的人才能上傳新的 `data.js`，所以別人打開也改不了內容。
+密碼鎖是在瀏覽器端運作，用來擋住一般訪客。真正能修改網站的只有能登入你 GitHub 的人，因為一定要上傳新的 `data.js` 才會變更內容。
