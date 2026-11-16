@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>學生 Tableau 作品集</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #fff; --text: #1f2d3d; --muted: #6b7c93;
+    --accent: #1f77b4; --border: #e3e8ee;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  header { padding: 40px 24px 16px; max-width: 1200px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 28px; }
+  .subtitle { color: var(--muted); margin: 0; }
+  .toolbar { display: flex; gap: 12px; align-items: center; margin-top: 20px; flex-wrap: wrap; }
+  .search {
+    flex: 1; min-width: 220px; max-width: 360px; padding: 10px 14px; font-size: 15px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fff;
+  }
+  .count { color: var(--muted); font-size: 14px; }
+  main {
+    max-width: 1200px; margin: 0 auto; padding: 8px 24px 48px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;
+  }
+  .card {
+    display: block; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; text-decoration: none; color: inherit;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .card:hover, .card:focus-visible { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(31,45,61,.12); outline: none; }
+  .thumb { aspect-ratio: 16 / 10; background: #e8eef5; overflow: hidden; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+  .info { padding: 12px 14px 14px; }
+  .name { font-weight: 600; font-size: 17px; }
+  .title { color: var(--muted); font-size: 14px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .open { color: var(--accent); font-size: 13px; margin-top: 8px; }
+  .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 60px 0; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding-bottom: 32px; }
+  footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="siteTitle">學生 Tableau 作品集</h1>
+  <p class="subtitle" id="siteSubtitle"></p>
+  <div class="toolbar">
+    <input class="search" id="search" type="search" placeholder="搜尋姓名或作品名稱…">
+    <span class="count" id="count"></span>
+  </div>
+</header>
+<main id="gallery"></main>
+<footer><a href="admin.html">管理作品</a></footer>
+
+<script src="common.js"></script>
+<script src="data.js"></script>
+<script>
+  const students = Array.isArray(window.STUDENTS) ? window.STUDENTS : [];
+  if (window.SITE_TITLE) { document.getElementById("siteTitle").textContent = window.SITE_TITLE; document.title = window.SITE_TITLE; }
+  document.getElementById("siteSubtitle").textContent = window.SITE_SUBTITLE || "";
+
+  const gallery = document.getElementById("gallery");
+  const countEl = document.getElementById("count");
+
+  function render(filter) {
+    const q = (filter || "").trim().toLowerCase();
+    const list = students.filter(s =>
+      !q || (s.name || "").toLowerCase().includes(q) || (s.title || "").toLowerCase().includes(q));
+    gallery.innerHTML = "";
+    if (!list.length) {
+      gallery.innerHTML = `<div class="empty">${students.length ? "找不到符合的作品" : "目前還沒有作品"}</div>`;
+    }
+    list.forEach(s => {
+      const a = document.createElement("a");
+      a.className = "card";
+      a.href = s.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.innerHTML = `
+        <div class="thumb"><img alt="${escapeHtml(s.name)} 的作品截圖" loading="lazy"></div>
+        <div class="info">
+          <div class="name">${escapeHtml(s.name)}</div>
+          ${s.title ? `<div class="title">${escapeHtml(s.title)}</div>` : ""}
+          <div class="open">在 Tableau Public 開啟 ↗</div>
+        </div>`;
+      attachThumbnail(a.querySelector("img"), s);
+      gallery.appendChild(a);
+    });
+    countEl.textContent = `共 ${list.length} 件作品`;
+  }
+
+  document.getElementById("search").addEventListener("input", e => render(e.target.value));
+  render("");
+</script>
+</body>
+</html>

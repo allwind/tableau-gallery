@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理作品</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #f5f7fa; color: #1f2d3d;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  .hint { color: #6b7c93; font-size: 14px; line-height: 1.6; }
+  .panel { background: #fff; border: 1px solid #e3e8ee; border-radius: 12px; padding: 18px; margin-top: 20px; }
+  .panel h2 { font-size: 16px; margin: 0 0 12px; }
+  label { display: block; font-size: 13px; color: #6b7c93; margin-bottom: 4px; }
+  input[type=text], input[type=url], textarea {
+    width: 100%; padding: 9px 12px; font-size: 15px; border: 1px solid #d5dce4; border-radius: 8px; font-family: inherit;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid .full { grid-column: 1 / -1; }
+  button {
+    padding: 9px 16px; font-size: 14px; border-radius: 8px; border: 1px solid #d5dce4;
+    background: #fff; cursor: pointer; font-family: inherit;
+  }
+  button.primary { background: #1f77b4; border-color: #1f77b4; color: #fff; }
+  button.danger { color: #c0392b; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .msg { font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .msg.err { color: #c0392b; } .msg.ok { color: #27ae60; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eef1f4; vertical-align: middle; }
+  th { color: #6b7c93; font-weight: 500; font-size: 13px; }
+  td img { width: 96px; height: 60px; object-fit: cover; object-position: top left; border-radius: 4px; background: #e8eef5; display: block; }
+  td.url { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td.url a { color: #1f77b4; }
+  .row-btns { display: flex; gap: 4px; }
+  .row-btns button { padding: 4px 8px; font-size: 13px; }
+  ol { padding-left: 20px; line-height: 1.8; margin: 0; }
+  code { background: #eef1f4; padding: 1px 5px; border-radius: 4px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>管理作品</h1>
+  <p class="hint">在這裡新增、修改學生作品，完成後按「下載 data.js」，再把檔案上傳到 GitHub 取代原本的 data.js 即可更新網站。<br>
+  這個頁面的修改只存在你的瀏覽器裡（會自動暫存），還沒上傳前其他人看不到。</p>
+
+  <div class="panel">
+    <h2>網站標題</h2>
+    <div class="grid">
+      <div><label>標題</label><input type="text" id="siteTitle"></div>
+      <div><label>副標題</label><input type="text" id="siteSubtitle"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 id="formTitle">新增作品</h2>
+    <div class="grid">
+      <div><label>學生姓名 *</label><input type="text" id="fName" placeholder="王小明"></div>
+      <div><label>作品名稱（選填）</label><input type="text" id="fTitle" placeholder="台灣人口分析"></div>
+      <div class="full"><label>Tableau Public 網址 *</label>
+        <input type="url" id="fUrl" placeholder="https://public.tableau.com/app/profile/xxx/viz/Workbook/Sheet1"></div>
+      <div class="full"><label>自訂截圖網址（選填，若自動截圖抓不到時使用）</label>
+        <input type="url" id="fImage" placeholder="https://..."></div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="saveBtn">新增</button>
+      <button id="cancelBtn" style="display:none">取消編輯</button>
+    </div>
+    <div class="msg" id="formMsg"></div>
+  </div>
+
+  <div class="panel">
+    <h2>批次貼上（選填）</h2>
+    <p class="hint" style="margin-top:0">一行一位學生，格式：<code>姓名, 網址</code> 或 <code>姓名, 作品名稱, 網址</code>（可直接從 Excel 複製兩欄或三欄貼上）。</p>
+    <textarea id="bulk" rows="4" placeholder="王小明, https://public.tableau.com/app/profile/...&#10;李小華, 人口分析, https://public.tableau.com/views/..."></textarea>
+    <div class="actions"><button id="bulkBtn">加入清單</button></div>
+    <div class="msg" id="bulkMsg"></div>
+  </div>
+
+  <div class="panel">
+    <h2>作品清單（<span id="n">0</span>）</h2>
+    <table>
+      <thead><tr><th>截圖</th><th>姓名</th><th>作品名稱</th><th>網址</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="actions">
+      <button class="primary" id="downloadBtn">下載 data.js</button>
+      <button id="copyBtn">複製 data.js 內容</button>
+      <button id="previewBtn">預覽網站</button>
+      <button class="danger" id="resetBtn">放棄修改，還原成線上版本</button>
+    </div>
+    <div class="msg" id="listMsg"></div>
+  </div>
+
+  <div class="panel">
+    <h2>如何更新到網站</h2>
+    <ol>
+      <li>按上方「下載 data.js」。</li>
+      <li>到 GitHub 上你的 repository，點 <b>Add file → Upload files</b>，把 data.js 拖進去（會取代舊檔），按 <b>Commit changes</b>。</li>
+      <li>等 1～2 分鐘，重新整理網站就會看到更新。</li>
+    </ol>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script src="data.js"></script>
+<script>
+  const STORE_KEY = "tableauGalleryDraft";
+  const original = {
+    title: window.SITE_TITLE || "學生 Tableau 作品集",
+    subtitle: window.SITE_SUBTITLE || "",
+    students: JSON.parse(JSON.stringify(window.STUDENTS || []))
+  };
+
+  let state = loadDraft() || JSON.parse(JSON.stringify(original));
+  let editingIndex = -1;
+
+  const $ = id => document.getElementById(id);
+
+  function loadDraft() {
+    try { const d = JSON.parse(localStorage.getItem(STORE_KEY)); return d && Array.isArray(d.students) ? d : null; }
+    catch (e) { return null; }
+  }
+  function saveDraft() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function setMsg(el, text, ok) { el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); }
+
+  function validate(name, url) {
+    if (!name) return "請輸入學生姓名";
+    if (!url) return "請輸入 Tableau Public 網址";
+    if (!/^https?:\/\//i.test(url)) return "網址需以 https:// 開頭";
+    return "";
+  }
+  function warnFor(url) {
+    const p = parseTableauUrl(url);
+    if (!p) return "（提醒：看起來不是 Tableau Public 作品網址，將無法自動抓截圖）";
+    if (!p.view) return "（提醒：網址缺少工作表名稱，無法自動抓截圖，建議在 Tableau Public 開啟作品後複製完整網址）";
+    return "";
+  }
+
+  function renderTable() {
+    const tb = $("tbody");
+    tb.innerHTML = "";
+    state.students.forEach((s, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><img alt=""></td>
+        <td>${escapeHtml(s.name)}</td>
+        <td>${escapeHtml(s.title || "")}</td>
+        <td class="url"><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.url)}</a></td>
+        <td><div class="row-btns">
+          <button data-act="up" title="上移">↑</button>
+          <button data-act="down" title="下移">↓</button>
+          <button data-act="edit">編輯</button>
+          <button data-act="del" class="danger">刪除</button>
+        </div></td>`;
+      attachThumbnail(tr.querySelector("img"), s);
+      tr.querySelectorAll("button").forEach(b => b.onclick = () => rowAction(b.dataset.act, i));
+      tb.appendChild(tr);
+    });
+    $("n").textContent = state.students.length;
+  }
+
+  function rowAction(act, i) {
+    const arr = state.students;
+    if (act === "up" && i > 0) [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+    if (act === "down" && i < arr.length - 1) [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+    if (act === "del") { if (!confirm(`確定刪除「${arr[i].name}」？`)) return; arr.splice(i, 1); if (editingIndex === i) resetForm(); }
+    if (act === "edit") {
+      editingIndex = i;
+      const s = arr[i];
+      $("fName").value = s.name || ""; $("fTitle").value = s.title || "";
+      $("fUrl").value = s.url || ""; $("fImage").value = s.image || "";
+      $("formTitle").textContent = `編輯：${s.name}`;
+      $("saveBtn").textContent = "儲存修改";
+      $("cancelBtn").style.display = "";
+      $("fName").focus();
+      window.scrollTo({ top: $("formTitle").offsetTop - 20, behavior: "smooth" });
+      return;
+    }
+    saveDraft(); renderTable();
+  }
+
+  function resetForm() {
+    editingIndex = -1;
+    ["fName", "fTitle", "fUrl", "fImage"].forEach(id => $(id).value = "");
+    $("formTitle").textContent = "新增作品";
+    $("saveBtn").textContent = "新增";
+    $("cancelBtn").style.display = "none";
+  }
+
+  $("saveBtn").onclick = () => {
+    const s = {
+      name: $("fName").value.trim(),
+      title: $("fTitle").value.trim(),
+      url: $("fUrl").value.trim(),
+      image: $("fImage").value.trim()
+    };
+    const err = validate(s.name, s.url);
+    if (err) return setMsg($("formMsg"), err, false);
+    if (!s.title) delete s.title;
+    if (!s.image) delete s.image;
+    const verb = editingIndex >= 0 ? "已更新" : "已新增";
+    if (editingIndex >= 0) state.students[editingIndex] = s; else state.students.push(s);
+    saveDraft(); renderTable(); resetForm();
+    setMsg($("formMsg"), `${verb}「${s.name}」${warnFor(s.url)}　記得最後要下載 data.js 上傳。`, true);
+    $("fName").focus();
+  };
+  $("cancelBtn").onclick = () => { resetForm(); $("formMsg").textContent = ""; };
+  $("fUrl").addEventListener("keydown", e => { if (e.key === "Enter") $("saveBtn").click(); });
+
+  $("bulkBtn").onclick = () => {
+    const lines = $("bulk").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    let added = 0; const bad = [];
+    lines.forEach(line => {
+      const parts = line.split(/\t|,|，/).map(x => x.trim()).filter(Boolean);
+      const urlIdx = parts.findIndex(p => /^https?:\/\//i.test(p));
+      if (urlIdx < 1) { bad.push(line); return; }
+      const url = parts[urlIdx];
+      const rest = parts.filter((_, k) => k !== urlIdx);
+      const s = { name: rest[0], url };
+      if (rest[1]) s.title = rest[1];
+      state.students.push(s); added++;
+    });
+    saveDraft(); renderTable();
+    if (added) $("bulk").value = bad.join("\n");
+    setMsg($("bulkMsg"), `已加入 ${added} 筆` + (bad.length ? `，${bad.length} 行格式無法辨識（留在框內）` : ""), bad.length === 0);
+  };
+
+  $("siteTitle").value = state.title;
+  $("siteSubtitle").value = state.subtitle;
+  $("siteTitle").oninput = e => { state.title = e.target.value; saveDraft(); };
+  $("siteSubtitle").oninput = e => { state.subtitle = e.target.value; saveDraft(); };
+
+  function buildDataJs() {
+    return `// 學生作品資料（由 admin.html 產生）
+// 欄位：name（姓名）、url（Tableau Public 網址）、title（作品名稱，選填）、image（自訂截圖網址，選填）
+
+window.SITE_TITLE = ${JSON.stringify(state.title)};
+window.SITE_SUBTITLE = ${JSON.stringify(state.subtitle)};
+
+window.STUDENTS = ${JSON.stringify(state.students, null, 2)};
+`;
+  }
+
+  $("downloadBtn").onclick = () => {
+    const blob = new Blob([buildDataJs()], { type: "text/javascript;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "data.js";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    setMsg($("listMsg"), "已下載 data.js，請上傳到 GitHub 取代舊檔。", true);
+  };
+  $("copyBtn").onclick = async () => {
+    try { await navigator.clipboard.writeText(buildDataJs()); setMsg($("listMsg"), "已複製，可貼到 GitHub 上的 data.js 編輯畫面。", true); }
+    catch (e) { setMsg($("listMsg"), "無法複製，請改用下載。", false); }
+  };
+  $("previewBtn").onclick = () => {
+    // 用目前的草稿開一個預覽頁
+    const w = window.open("", "_blank");
+    if (!w) return setMsg($("listMsg"), "瀏覽器擋住了彈出視窗。", false);
+    fetchText("index.html").then(html => {
+      const injected = html.replace('<script src="data.js"></script>',
+        `<script>${buildDataJs().replace(/<\//g, "<\\/")}<\/script>`)
+        .replace("<head>", `<head><base href="${location.href.replace(/[^\/]*$/, "")}">`);
+      w.document.open(); w.document.write(injected); w.document.close();
+    }).catch(() => { w.close(); setMsg($("listMsg"), "預覽需在網站上（GitHub Pages）使用；本機開檔請直接看清單中的截圖。", false); });
+  };
+  function fetchText(u) { return fetch(u, { cache: "no-store" }).then(r => { if (!r.ok) throw 0; return r.text(); }); }
+
+  $("resetBtn").onclick = () => {
+    if (!confirm("確定放棄這個瀏覽器中的所有修改，還原成目前線上 data.js 的內容？")) return;
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    state = JSON.parse(JSON.stringify(original));
+    $("siteTitle").value = state.title; $("siteSubtitle").value = state.subtitle;
+    resetForm(); renderTable();
+    setMsg($("listMsg"), "已還原。", true);
+  };
+
+  if (loadDraft()) setMsg($("listMsg"), "已載入你上次在這個瀏覽器中尚未上傳的修改。", true);
+  renderTable();
+</script>
+</body>
+</html>
